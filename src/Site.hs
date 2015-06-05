@@ -9,6 +9,7 @@ module Site
   ) where
 
 ------------------------------------------------------------------------------
+import           Control.Lens
 import           Control.Applicative
 import           Data.ByteString (ByteString)
 import           Data.Monoid
@@ -25,6 +26,9 @@ import           Heist
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           Application
+-- import           Acid.API
+import           Acid.Auth
+------------------------------------------------------------------------------
 
 
 ------------------------------------------------------------------------------
@@ -55,7 +59,9 @@ handleLogout = logout >> redirect "/"
 ------------------------------------------------------------------------------
 -- | Handle new user form submit
 handleNewUser :: Handler App (AuthManager App) ()
-handleNewUser = method GET handleForm <|> method POST handleFormSubmit
+handleNewUser = do
+    method GET handleForm <|> method POST handleFormSubmit
+    createCheckpoint
   where
     handleForm = render "new_user"
     handleFormSubmit = registerUser "login" "password" >> redirect "/"
@@ -64,10 +70,11 @@ handleNewUser = method GET handleForm <|> method POST handleFormSubmit
 ------------------------------------------------------------------------------
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
-routes = [ ("/login",    with auth handleLoginSubmit)
-         , ("/logout",   with auth handleLogout)
-         , ("/new_user", with auth handleNewUser)
-         , ("",          serveDirectory "static")
+routes = [ ("/login"        , with authacid handleLoginSubmit)
+         , ("/logout"       , with authacid handleLogout)
+         , ("/home"         , render "mainMenu")
+         , ("/new_user"     , with authacid handleNewUser)
+         , (""              , serveDirectory "static")
          ]
 
 
@@ -79,13 +86,17 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     s <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" (Just 3600)
 
+{-
     -- NOTE: We're using initJsonFileAuthManager here because it's easy and
     -- doesn't require any kind of database server to run.  In practice,
     -- you'll probably want to change this to a more robust auth backend.
-    a <- nestSnaplet "auth" auth $
-           initJsonFileAuthManager defAuthSettings sess "users.json"
-    c <- nestSnaplet "acid" acid $ acidInit (emptyAppAcid)
+    a  <- nestSnaplet "auth" auth $
+            initJsonFileAuthManager defAuthSettings sess "users.json"
+-}
+    c  <- nestSnaplet "acid" acid $ acidInit (emptyAppAcid)
+    ac <- nestSnaplet "auth-acid" authacid $
+            initAcidAuthManager defAuthSettings (_acidStore $ c ^. snapletValue) sess
     addRoutes routes
-    addAuthSplices h auth
-    return $ App h s a c
+    addAuthSplices h authacid
+    return $ App h s ac c
 

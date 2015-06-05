@@ -20,7 +20,7 @@ import           Snap.Snaplet.AcidState
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Config.SafeCopy
 import           Application.User
-import qualified Utils as U
+-- import qualified Utils as U
 
 ------------------------------------------------------------------------------
 -- Acid state for App
@@ -42,7 +42,8 @@ deriveSafeCopy safeCopyVersion 'base ''AppAcid
 data App = App
     { _heist :: Snaplet (Heist App)
     , _sess :: Snaplet SessionManager
-    , _auth :: Snaplet (AuthManager App)
+    -- , _auth :: Snaplet (AuthManager App)
+    , _authacid :: Snaplet (AuthManager App)
     , _acid :: Snaplet (Acid AppAcid)
     }
 
@@ -59,17 +60,4 @@ instance HasAcid App AppAcid where
 --
 
 type AppHandler = Handler App App
-
-------------------------------------------------------------------------------
--- Acid API
-
--- | Add a user, acidically
-userAddA :: UserName -> Update AppAcid (Maybe UserKey)
--- userAddA nm = zoom users $ userAddM nm
-userAddA nm = U.liftST2MS $ zoom users $ userAddM nm
-
-makeAcidic ''AppAcid
-  [ 'userAddA
-  ]
-
 
