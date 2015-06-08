@@ -71,3 +71,9 @@
 [08/Jun/2015:14:53:29 +0200] Server.httpServe: START, binding to [http://0.0.0.0:8000/]
 [08/Jun/2015:14:57:23 +0200] Server.httpServe: SHUTDOWN
 [08/Jun/2015:14:57:23 +0200] Server.httpServe: BACKEND STOPPED
+[08/Jun/2015:21:12:38 +0200] Server.httpServe: START, binding to [http://0.0.0.0:8000/]
+[08/Jun/2015:21:28:26 +0200] Server.httpServe: SHUTDOWN
+[08/Jun/2015:21:28:26 +0200] Server.httpServe: BACKEND STOPPED
+[08/Jun/2015:22:29:09 +0200] Server.httpServe: START, binding to [http://0.0.0.0:8000/]
+[08/Jun/2015:22:49:32 +0200] Server.httpServe: SHUTDOWN
+[08/Jun/2015:22:49:32 +0200] Server.httpServe: BACKEND STOPPED

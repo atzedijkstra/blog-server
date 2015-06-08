@@ -1,0 +1,8 @@
+Add form editing of user info
+
+Acid state data model change
+
+Concurrency: Idle thread doing checkpoint
+
+Acid run in-memory
+

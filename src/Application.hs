@@ -20,6 +20,7 @@ import           Snap.Snaplet.AcidState
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Config.SafeCopy
 import           Application.User
+import           Application.Blog
 -- import qualified Utils as U
 
 ------------------------------------------------------------------------------

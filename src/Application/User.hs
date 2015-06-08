@@ -7,6 +7,7 @@ module Application.User
   where
 
 ------------------------------------------------------------------------------
+import           Data.Maybe
 import           Data.Typeable
 import           Control.Lens
 import           Control.Monad.State
@@ -21,9 +22,9 @@ import           Data.Aeson (Value)
 import           Data.Scientific(Scientific)
 import           UHC.Util.Pretty
 ------------------------------------------------------------------------------
--- import           Marks.HtmlUI.FormTypes
 import           Config.SafeCopy
 import           Utils.Monad()
+import           Application.KeyValueWithId
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
@@ -110,32 +111,27 @@ instance PP Users where
       ( Map.toList k2u >-< Map.toList n2k >-< Map.toList t2k
       )
 
+instance KeyValueWithId Users where
+  type Id Users     = UserKey
+  type Key Users    = UserName
+  type Val Users    = User
+  kviKey2IdLens     = usersName2KeyMp
+  kviId2ValLens     = usersKey2UserMp
+  kviNextId         = usersNextKey %%= \k -> (UserId $ T.pack $ show k, k+1)
+  kviKeyIdOfVal u   = return (Just $ userLogin $ u ^. authUser, fromJust $ userId $ u ^. authUser)
+  kviPreDeleteVal u = usersToken2KeyMp %= (maybe id Map.delete $ userRememberToken $ u ^. authUser)
+  kviPostInsertVal newKey u= usersToken2KeyMp %= (maybe id (\tok -> Map.insert tok newKey) $ userRememberToken $ u ^. authUser)
+
 ------------------------------------------------------------------------------
 -- Functionality on User and Users
 
 -- | Add a user, state monadically
 userAdd :: (Monad m, MonadState Users m) => UserName -> Maybe UserRToken -> m (Maybe UserKey)
-userAdd nm mtok = do
-    r <- use usersName2KeyMp
-    case Map.lookup nm r of
-      Just _ -> return Nothing
-      _ -> do
-        newKey <- usersNextKey %%= \k -> (UserId $ T.pack $ show k, k+1)
-        usersName2KeyMp %= Map.insert nm newKey
-        usersToken2KeyMp %= maybe id (\tok -> Map.insert tok newKey) mtok
-        usersKey2UserMp %=
-          (Map.insert newKey $
-            ((userName .~ nm) . (authUser %~ \u -> u {userId = Just newKey, userLogin = nm, userRememberToken = mtok}))
-              emptyUser)
-        return $ Just newKey
+userAdd = kviAdd $ \nm newKey mtok -> ((userName .~ nm) . (authUser %~ \u -> u {userId = Just newKey, userLogin = nm, userRememberToken = mtok})) emptyUser
 
 -- | Delete a user
 userDelete :: (Monad m, MonadState Users m) => User -> m ()
-userDelete u = do
-    let nm = userLogin $ u ^. authUser
-    usersName2KeyMp  %= Map.delete nm
-    usersToken2KeyMp %= (maybe id Map.delete $ userRememberToken $ u ^. authUser)
-    usersKey2UserMp  %= (maybe id Map.delete $ userId $ u ^. authUser)
+userDelete = kviDelete
 
 -- | Update user, return updated User
 userUpdateByKey :: (Monad m, MonadState Users m) => UserKey -> (User -> User) -> m (Maybe User)

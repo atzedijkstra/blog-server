@@ -22,7 +22,7 @@ Executable blog-server
   hs-source-dirs: src
   main-is: Main.hs
 
-  Extensions: DeriveDataTypeable, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, Rank2Types, StandaloneDeriving
+  Extensions: DeriveDataTypeable, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, Rank2Types, StandaloneDeriving, FunctionalDependencies, TypeFamilies
   
   Build-depends:
     containers                >= 0.5.5,
