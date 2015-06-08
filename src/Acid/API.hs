@@ -14,7 +14,7 @@ import           Snap.Snaplet.Auth
 ------------------------------------------------------------------------------
 import           Application
 import           Application.User
-import           Utils (liftST2MS, liftRT2MR)
+import           Utils.Monad (liftST2MS, liftRT2MR)
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
@@ -23,6 +23,12 @@ import           Utils (liftST2MS, liftRT2MR)
 -- | Add a user
 userAddAcid :: UserName -> Maybe UserRToken -> Update AppAcid (Maybe UserKey)
 userAddAcid nm mtok = liftST2MS $ zoom users $ userAdd nm mtok
+
+-- | Set user
+userSetByKeyAcid :: UserKey -> User -> Update AppAcid ()
+userSetByKeyAcid k u = liftST2MS $ zoom users $ do
+    userUpdateByKey k (const u)
+    return ()
 
 -- | Delete a user
 userDeleteAcid :: User -> Update AppAcid ()
@@ -43,6 +49,18 @@ userLookupByRTokenAcid nm = liftRT2MR $ magnify users $ userLookupByRToken nm
 -- | Specific saving for Auth
 saveAuthUser :: AuthUser -> Update AppAcid (Either AuthFailure AuthUser)
 saveAuthUser user = liftST2MS $ zoom users $ do
+    case userId user of
+        Just k -> 
+          fmap (maybe (Left DuplicateLogin) (Right . (^. authUser))) $ 
+            userUpdateByKey k $ \u -> ((userName .~ (userLogin user)) . (authUser .~ user)) u
+        Nothing -> do
+          mk <- userAdd (userLogin user) (userRememberToken user)
+          case mk of
+            Just k -> do
+              fmap (Right . (^. authUser) . fromJust) $ 
+                userUpdateByKey k $ \u -> (authUser .~ (user {userId = userId $ u ^. authUser})) u
+            Nothing -> return $ Left DuplicateLogin
+{-
     mk <- userAdd (userLogin user) (userRememberToken user)
     case mk of
       Nothing -> case userId user of
@@ -53,9 +71,11 @@ saveAuthUser user = liftST2MS $ zoom users $ do
       Just k -> do
           fmap (Right . (^. authUser) . fromJust) $ 
             userUpdateByKey k $ \u -> (authUser .~ (user {userId = userId $ u ^. authUser})) u
+-}
 
 makeAcidic ''AppAcid
   [ 'userAddAcid
+  , 'userSetByKeyAcid
   , 'userDeleteAcid
   
   , 'userLookupByNameAcid

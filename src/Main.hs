@@ -22,6 +22,7 @@ import           Snap.Http.Server
 import           Snap.Snaplet
 import           Snap.Snaplet.Config
 import           Snap.Core
+-- import           Snap.Snaplet.AcidState as Acid
 import           System.IO
 import           Site
 

@@ -9,6 +9,7 @@ module Acid.Auth
 ------------------------------------------------------------------------------
 import           Control.Lens
 import           Control.Monad.IO.Class
+import qualified Control.Monad.State as MS
 -- import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.AcidState
@@ -16,17 +17,21 @@ import qualified Data.Acid as A
 import           Snap.Snaplet.Auth
 import           Snap.Snaplet.Session         (SessionManager, mkRNG)
 import           Web.ClientSession            (getKey)
+import           UHC.Util.Pretty
 ------------------------------------------------------------------------------
 import           Application
 import           Application.User
 import           Acid.API
+import           Utils.Monad
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
 -- Auth backend binding
 
 instance IAuthBackend (AcidState AppAcid) where
-    save a u                    = A.update a $ SaveAuthUser u
+    save a u                    = do r <- A.update a $ SaveAuthUser u
+                                     -- liftST2MS $ MS.get >>= (liftIO . putPPLn . pp)
+                                     return r
     lookupByUserId a uid        = fmap (fmap (^. authUser)) $ A.query a $ UserLookupByKeyAcid uid
     lookupByLogin  a l          = fmap (fmap (^. authUser)) $ A.query a $ UserLookupByNameAcid l
     lookupByRememberToken a tok = fmap (fmap (^. authUser)) $ A.query a $ UserLookupByRTokenAcid tok

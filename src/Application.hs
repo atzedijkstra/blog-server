@@ -55,6 +55,13 @@ instance HasHeist App where
 instance HasAcid App AppAcid where
   getAcidStore  = view $ acid . snapletValue
 
+{-
+class HasAuth b where  
+  getAuthManager :: SnapletLens  (Snaplet b) (AuthManager b)
+
+instance HasAuth App where
+  getAuthManager = view $ authacid . snapletValue
+-}
 
 ------------------------------------------------------------------------------
 --

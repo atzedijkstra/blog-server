@@ -19,9 +19,11 @@ import qualified Data.HashMap.Strict as H
 import           Data.Hashable (Hashable)
 import           Data.Aeson (Value)
 import           Data.Scientific(Scientific)
+import           UHC.Util.Pretty
 ------------------------------------------------------------------------------
 -- import           Marks.HtmlUI.FormTypes
 import           Config.SafeCopy
+import           Utils.Monad()
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
@@ -45,6 +47,12 @@ deriveSafeCopy safeCopyVersion 'base ''Value
 
 deriveSafeCopy safeCopyVersion 'base ''Scientific
 
+instance PP UserId where
+  pp = pp . show
+
+instance PP AuthUser where
+  pp (AuthUser {userLogin=l, userId=i, userRememberToken=tk}) = l >|< ppParens i >#< tk
+
 ------------------------------------------------------------------------------
 -- Per user maintained persistent state
 type UserName = T.Text
@@ -61,6 +69,12 @@ emptyUser = User "" defAuthUser
 makeLenses ''User
 
 deriveSafeCopy safeCopyVersion 'base ''User
+
+instance Show User where
+  show _ = "User"
+
+instance PP User where
+  pp (User {_userName=n, _authUser=u}) = n >|< text ":" >#< u
 
 ------------------------------------------------------------------------------
 -- Mapping from user to state
@@ -86,6 +100,15 @@ emptyUsers :: Users
 emptyUsers = Users 0 Map.empty Map.empty Map.empty
 
 deriveSafeCopy safeCopyVersion 'base ''Users
+
+instance Show Users where
+  show _ = "Users"
+
+instance PP Users where
+  pp (Users {_usersNextKey=nk, _usersName2KeyMp=n2k, _usersToken2KeyMp=t2k, _usersKey2UserMp=k2u}) =
+    text "Users" >#< ppParens nk >-< indent 2
+      ( Map.toList k2u >-< Map.toList n2k >-< Map.toList t2k
+      )
 
 ------------------------------------------------------------------------------
 -- Functionality on User and Users
@@ -114,12 +137,45 @@ userDelete u = do
     usersToken2KeyMp %= (maybe id Map.delete $ userRememberToken $ u ^. authUser)
     usersKey2UserMp  %= (maybe id Map.delete $ userId $ u ^. authUser)
 
--- | Update user
+-- | Update user, return updated User
 userUpdateByKey :: (Monad m, MonadState Users m) => UserKey -> (User -> User) -> m (Maybe User)
 userUpdateByKey k upd = do
+{-
+    m <- use usersKey2UserMp
+    case Map.lookup k m of
+      Just u -> do
+        let u' = upd u
+        case (u ^. userName, u' ^. userName) of
+          (n, n') | n == n'   -> return ()
+                  | otherwise -> usersName2KeyMp  %= (Map.insert n' k . Map.delete n)
+        case (userRememberToken $ u ^. authUser, userRememberToken $ u' ^. authUser) of
+          (Just t , Just t') | t /= t'   -> usersToken2KeyMp %= (Map.insert t' k . Map.delete t)
+          (Just t , Nothing)             -> usersToken2KeyMp %= (                  Map.delete t)
+          (Nothing, Just t')             -> usersToken2KeyMp %= (Map.insert t' k               )
+          _                              -> return ()
+        return $ Just u'
+      Nothing -> return Nothing
+-}
+{-
+-}
+    -- incorrect because various keys can change, but seems to work and above not... Sigh...
     usersKey2UserMp %= Map.update (Just. upd) k
     m <- use usersKey2UserMp
     return $ Map.lookup k m 
+{-
+    m <- use usersKey2UserMp
+    case Map.lookup k m of
+      Just u -> do
+        let u' = upd u
+            dnm = Map.delete (u ^. userName)
+            inm = Map.insert (u' ^. userName) k
+            dtk = maybe id (Map.delete) (userRememberToken $ u ^. authUser)
+            itk = maybe id (\tk -> Map.insert tk k) (userRememberToken $ u' ^. authUser)
+        usersName2KeyMp  %= (inm . dnm)
+        usersToken2KeyMp %= (itk . dtk)
+        return $ Just u'
+      Nothing -> return Nothing
+-}
 
 -- | Lookup user by key
 userLookupByKey :: (Functor m, Monad m, MonadReader Users m) => UserKey -> m (Maybe User)
