@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 ------------------------------------------------------------------------------
 -- | This module defines our application's state type and an alias for its
@@ -8,30 +8,33 @@ module Application
   where
 
 ------------------------------------------------------------------------------
--- import           Control.Monad.Trans
 import           Control.Lens
+import           Control.Monad.State
 import           Data.Typeable
+import qualified Data.Map as Map
+import qualified Data.Set as Set
 import           Snap.Snaplet
 import           Snap.Snaplet.Heist
 import           Snap.Snaplet.Auth
 import           Snap.Snaplet.Session
 import           Snap.Snaplet.AcidState
--- import           Data.Acid
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Config.SafeCopy
 import           Application.User
 import           Application.Blog
--- import qualified Utils as U
+------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
 -- Acid state for App
 data AppAcid = AppAcid
-    { _users        :: Users
+    { _users        :: !Users
+    , _blogs        :: !Blogs
+    , _blogsOfUser  :: Map.Map UserKey (Set.Set BlogKey)
     }
     deriving (Typeable)
 
 emptyAppAcid :: AppAcid
-emptyAppAcid = AppAcid emptyUsers
+emptyAppAcid = AppAcid emptyUsers emptyBlogs Map.empty
 
 makeLenses ''AppAcid
 
@@ -43,7 +46,6 @@ deriveSafeCopy safeCopyVersion 'base ''AppAcid
 data App = App
     { _heist :: Snaplet (Heist App)
     , _sess :: Snaplet SessionManager
-    -- , _auth :: Snaplet (AuthManager App)
     , _authacid :: Snaplet (AuthManager App)
     , _acid :: Snaplet (Acid AppAcid)
     }
@@ -56,13 +58,10 @@ instance HasHeist App where
 instance HasAcid App AppAcid where
   getAcidStore  = view $ acid . snapletValue
 
-{-
-class HasAuth b where  
-  getAuthManager :: SnapletLens  (Snaplet b) (AuthManager b)
-
-instance HasAuth App where
-  getAuthManager = view $ authacid . snapletValue
--}
+------------------------------------------------------------------------------
+-- Relation between blog and user
+blogAttachToUser :: (Monad m, MonadState AppAcid m) => BlogKey -> UserKey -> m ()
+blogAttachToUser b u = blogsOfUser %= Map.insertWith Set.union u (Set.singleton b)
 
 ------------------------------------------------------------------------------
 --

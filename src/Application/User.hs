@@ -26,6 +26,8 @@ import           Config.SafeCopy
 import           Utils.Monad()
 import           Application.KeyValueWithId
 ------------------------------------------------------------------------------
+-- import           Utils.Debug
+------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
 -- AuthUser specific stuff
@@ -49,18 +51,27 @@ deriveSafeCopy safeCopyVersion 'base ''Value
 deriveSafeCopy safeCopyVersion 'base ''Scientific
 
 instance PP UserId where
+  pp = pp . unUid
+
+instance PP Password where
   pp = pp . show
 
 instance PP AuthUser where
-  pp (AuthUser {userLogin=l, userId=i, userRememberToken=tk}) = l >|< ppParens i >#< tk
+  pp (AuthUser {userLogin=l, userId=i, userRememberToken=tk, userPassword=pw, userFailedLoginCount=flog, userLoginCount=log}) =
+    l >|< ppParens i >#<
+    text "pw=" >|< show pw >#<
+    text "rtok=" >|< tk >#<
+    text "nlogin=" >|< log >#<
+    text "nfaillogin=" >|< flog >#<
+    empty
 
 ------------------------------------------------------------------------------
 -- Per user maintained persistent state
 type UserName = T.Text
 
 data User = User
-    { _userName     :: UserName
-    , _authUser     :: AuthUser
+    { _userName     :: !UserName
+    , _authUser     :: !AuthUser
     }
     deriving (Typeable)
 
@@ -120,7 +131,7 @@ instance KeyValueWithId Users where
   kviNextId         = usersNextKey %%= \k -> (UserId $ T.pack $ show k, k+1)
   kviKeyIdOfVal u   = return (Just $ userLogin $ u ^. authUser, fromJust $ userId $ u ^. authUser)
   kviPreDeleteVal u = usersToken2KeyMp %= (maybe id Map.delete $ userRememberToken $ u ^. authUser)
-  kviPostInsertVal newKey u= usersToken2KeyMp %= (maybe id (\tok -> Map.insert tok newKey) $ userRememberToken $ u ^. authUser)
+  kviPostInsertVal k u= usersToken2KeyMp %= (maybe id (\tok -> Map.insert tok k) $ userRememberToken $ u ^. authUser)
 
 ------------------------------------------------------------------------------
 -- Functionality on User and Users
@@ -135,53 +146,15 @@ userDelete = kviDelete
 
 -- | Update user, return updated User
 userUpdateByKey :: (Monad m, MonadState Users m) => UserKey -> (User -> User) -> m (Maybe User)
-userUpdateByKey k upd = do
-{-
-    m <- use usersKey2UserMp
-    case Map.lookup k m of
-      Just u -> do
-        let u' = upd u
-        case (u ^. userName, u' ^. userName) of
-          (n, n') | n == n'   -> return ()
-                  | otherwise -> usersName2KeyMp  %= (Map.insert n' k . Map.delete n)
-        case (userRememberToken $ u ^. authUser, userRememberToken $ u' ^. authUser) of
-          (Just t , Just t') | t /= t'   -> usersToken2KeyMp %= (Map.insert t' k . Map.delete t)
-          (Just t , Nothing)             -> usersToken2KeyMp %= (                  Map.delete t)
-          (Nothing, Just t')             -> usersToken2KeyMp %= (Map.insert t' k               )
-          _                              -> return ()
-        return $ Just u'
-      Nothing -> return Nothing
--}
-{-
--}
-    -- incorrect because various keys can change, but seems to work and above not... Sigh...
-    usersKey2UserMp %= Map.update (Just. upd) k
-    m <- use usersKey2UserMp
-    return $ Map.lookup k m 
-{-
-    m <- use usersKey2UserMp
-    case Map.lookup k m of
-      Just u -> do
-        let u' = upd u
-            dnm = Map.delete (u ^. userName)
-            inm = Map.insert (u' ^. userName) k
-            dtk = maybe id (Map.delete) (userRememberToken $ u ^. authUser)
-            itk = maybe id (\tk -> Map.insert tk k) (userRememberToken $ u' ^. authUser)
-        usersName2KeyMp  %= (inm . dnm)
-        usersToken2KeyMp %= (itk . dtk)
-        return $ Just u'
-      Nothing -> return Nothing
--}
+userUpdateByKey = kviUpdateById
 
 -- | Lookup user by key
 userLookupByKey :: (Functor m, Monad m, MonadReader Users m) => UserKey -> m (Maybe User)
-userLookupByKey k = fmap (Map.lookup k) $ view usersKey2UserMp
+userLookupByKey = kviLookupById
 
 -- | Lookup user by name
 userLookupByName :: (Functor m, Monad m, MonadReader Users m) => UserName -> m (Maybe User)
-userLookupByName nm = do
-    mk <- fmap (Map.lookup nm) $ view usersName2KeyMp
-    maybe (return Nothing) userLookupByKey mk
+userLookupByName = kviLookupByKey
 
 -- | Lookup user by rtoken
 userLookupByRToken :: (Functor m, Monad m, MonadReader Users m) => UserRToken -> m (Maybe User)

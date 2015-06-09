@@ -1,5 +1,7 @@
 <table border="1">
 <tr> <td><a href="/home">Home</a></td>
-     <td><a href="/edit_user">Edit user</a></td>
+     <td><a href="/editUserSettings">My settings</a></td>
+     <td><a href="/editBlog">New blog</a></td>
+     <td><a href="/dump">Dump adm</a></td>
 </tr>
 </table>

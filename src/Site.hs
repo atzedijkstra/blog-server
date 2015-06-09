@@ -25,19 +25,37 @@ import           Snap.Snaplet.AcidState
 import           Snap.Util.FileServe
 import           Heist
 import qualified Heist.Interpreted as I
+import           UHC.Util.Pretty
+------------------------------------------------------------------------------
+import qualified Text.Blaze.Html5 as H
+import           Text.Blaze.Renderer.XmlHtml
 ------------------------------------------------------------------------------
 import qualified Text.Digestive.Snap as DS
 import           Text.Digestive.Heist
 ------------------------------------------------------------------------------
 import           Application
 import           Application.User
+import           Application.Blog
 import           Acid.API
 import           Acid.Auth
 import           HtmlUI
 ------------------------------------------------------------------------------
 -- import           Utils.Debug
-------------------------------------------------------------------------------
 
+------------------------------------------------------------------------------
+-- Utils
+
+-- | Current user
+getCurrentUser :: Handler App App (Maybe User)
+getCurrentUser = do
+    mbauser <- with authacid $ currentUser
+    case mbauser of
+      Just auser -> with acid $ query $ UserLookupByNameAcid (userLogin auser)
+      _          -> return Nothing
+
+-- | Default handler for various pieces of code
+defaultHandler :: Handler App v ()
+defaultHandler = redirect "/"
 
 ------------------------------------------------------------------------------
 -- | Render login form
@@ -53,7 +71,7 @@ handleLogin authError = heistLocal (I.bindSplices errs) $ render "login"
 handleLoginSubmit :: Handler App (AuthManager App) ()
 handleLoginSubmit =
     loginUser "login" "password" Nothing
-              (\_ -> handleLogin err) (redirect "/")
+              (\_ -> handleLogin err) defaultHandler
   where
     err = Just "Unknown user or password"
 
@@ -61,7 +79,7 @@ handleLoginSubmit =
 ------------------------------------------------------------------------------
 -- | Logs out and redirects the user to the site index.
 handleLogout :: Handler App (AuthManager App) ()
-handleLogout = logout >> redirect "/"
+handleLogout = logout >> defaultHandler
 
 
 ------------------------------------------------------------------------------
@@ -71,33 +89,55 @@ handleNewUser = do
     method GET handleForm <|> method POST handleFormSubmit
     -- createCheckpoint
   where
-    handleForm = render "new_user"
-    handleFormSubmit = registerUser "login" "password" >> redirect "/"
+    handleForm = render "newUser"
+    handleFormSubmit = registerUser "login" "password" >> defaultHandler
 
 ------------------------------------------------------------------------------
 -- | Handle edit user form submit
 handleEditUser :: String -> Handler App App ()
 handleEditUser postAction = do
-    auth <- with authacid $ getsSnapletState (^. snapletValue)
-    mbauser <- with authacid $ currentUser
-    case -- trpp "handleEditUser.activeUser"
-         mbauser of
-      Just auser -> do
-        mbuser <- with acid $ query $ UserLookupByNameAcid (userLogin auser)
-        case mbuser of
-          Just user -> do
-            (formView, formResult) <- DS.runForm "form" $ editFormUser user
-            case formResult of
-              Just user2 -> do
-                with acid $ update $ UserSetByKeyAcid (fromJust $ userId $ user ^. authUser) user2
-                dflt
-              _ -> heistLocal (bindDigestiveSplices formView)
-                     $ renderWithSplices "userEditForm"
-                     $ "postAction" ## (I.textSplice $ T.pack postAction)
-          _ -> dflt
-      _ -> dflt
-  where
-    dflt = redirect "/"
+    mbuser <- getCurrentUser
+    case mbuser of
+      Just user -> do
+        (formView, formResult) <- DS.runForm "form" $ editFormUser user
+        case formResult of
+          Just user2 -> do
+            with acid $ update $ UserSetByKeyAcid (fromJust $ userId $ user ^. authUser) user2
+            defaultHandler
+          _ -> heistLocal (bindDigestiveSplices formView)
+                 $ renderWithSplices "userEditForm"
+                 $ "postAction" ## (I.textSplice $ T.pack postAction)
+      _ -> defaultHandler
+
+------------------------------------------------------------------------------
+-- | Handle edit blog form submit
+handleEditBlog :: String -> Handler App App ()
+handleEditBlog postAction = do
+    mbuser <- getCurrentUser
+    case mbuser of
+      Just user -> do
+        (formView, formResult) <- DS.runForm "form" $ editFormBlog emptyBlog
+        case formResult of
+          Just blog2 -> do
+            with acid $ update $ BlogAddForUserAcid (fromJust $ userId $ user ^. authUser) blog2
+            defaultHandler
+          _ -> heistLocal (bindDigestiveSplices formView)
+                 $ renderWithSplices "blogEditForm"
+                 $ "postAction" ## (I.textSplice $ T.pack postAction)
+      _ -> defaultHandler
+
+------------------------------------------------------------------------------
+-- | Show adm
+handleDumpAdm :: Handler App App ()
+handleDumpAdm = do
+    users <- query UsersAcid
+    blogs <- query BlogsAcid
+    ownership <- query BlogsOfUserAcid
+    renderWithSplices "dump" $ do
+      "users" ## mkdump users
+      "blogs" ## mkdump blogs
+      "ownership" ## mkdump ownership
+  where mkdump x = return $ renderHtmlNodes $ H.pre $ H.toMarkup $ show (pp x)
 
 ------------------------------------------------------------------------------
 -- | The application's routes.
@@ -105,8 +145,10 @@ routes :: [(ByteString, Handler App App ())]
 routes = [ ("/login"        , with authacid handleLoginSubmit)
          , ("/logout"       , with authacid handleLogout)
          , ("/home"         , render "mainMenu")
-         , mkFormRoute "edit_user" handleEditUser
-         , ("/new_user"     , with authacid handleNewUser)
+         , ("/dump"         , handleDumpAdm)
+         , mkFormRoute "editUserSettings" handleEditUser
+         , mkFormRoute "editBlog" handleEditBlog
+         , ("/newUser"      , with authacid handleNewUser)
          , (""              , serveDirectory "static")
          ]
   where mkFormRoute :: String -> (String -> Handler App App ()) -> (ByteString, Handler App App ())

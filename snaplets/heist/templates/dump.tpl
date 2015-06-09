@@ -1,3 +1,3 @@
 <apply template="base">
-  <apply template="_new_user" />
+  <apply template="_dump" />
 </apply>

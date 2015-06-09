@@ -97,3 +97,14 @@ blogAdd nm = kviAdd embed nm ()
 blogDelete :: (Monad m, MonadState Blogs m) => Blog -> m ()
 blogDelete = kviDelete
 
+-- | Update blog, return updated Blog
+blogUpdateByKey :: (Monad m, MonadState Blogs m) => BlogKey -> (Blog -> Blog) -> m (Maybe Blog)
+blogUpdateByKey = kviUpdateById
+
+-- | Lookup blog by key
+blogLookupByKey :: (Functor m, Monad m, MonadReader Blogs m) => BlogKey -> m (Maybe Blog)
+blogLookupByKey = kviLookupById
+
+-- | Lookup blog by name
+blogLookupByName :: (Functor m, Monad m, MonadReader Blogs m) => BlogName -> m (Maybe Blog)
+blogLookupByName = kviLookupByKey

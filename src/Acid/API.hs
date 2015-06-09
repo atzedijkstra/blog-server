@@ -8,17 +8,28 @@ module Acid.API
 
 ------------------------------------------------------------------------------
 import           Data.Maybe
+import qualified Data.Map as Map
+import qualified Data.Set as Set
 import           Control.Lens
+import           Control.Monad.Reader
 import           Snap.Snaplet.AcidState
 import           Snap.Snaplet.Auth
 ------------------------------------------------------------------------------
 import           Application
 import           Application.User
+import           Application.Blog
 import           Utils.Monad (liftST2MS, liftRT2MR)
+------------------------------------------------------------------------------
+-- import           UHC.Util.Pretty
+-- import           Utils.Debug
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
--- Acid API
+-- Acid API for users
+
+-- | All users
+usersAcid :: Query AppAcid Users
+usersAcid = asks _users
 
 -- | Add a user
 userAddAcid :: UserName -> Maybe UserRToken -> Update AppAcid (Maybe UserKey)
@@ -27,7 +38,8 @@ userAddAcid nm mtok = liftST2MS $ zoom users $ userAdd nm mtok
 -- | Set user
 userSetByKeyAcid :: UserKey -> User -> Update AppAcid ()
 userSetByKeyAcid k u = liftST2MS $ zoom users $ do
-    userUpdateByKey k (const u)
+    userUpdateByKey k $
+      const u
     return ()
 
 -- | Delete a user
@@ -50,31 +62,50 @@ userLookupByRTokenAcid nm = liftRT2MR $ magnify users $ userLookupByRToken nm
 saveAuthUser :: AuthUser -> Update AppAcid (Either AuthFailure AuthUser)
 saveAuthUser user = liftST2MS $ zoom users $ do
     case userId user of
-        Just k -> 
-          fmap (maybe (Left DuplicateLogin) (Right . (^. authUser))) $ 
-            userUpdateByKey k $ \u -> ((userName .~ (userLogin user)) . (authUser .~ user)) u
-        Nothing -> do
-          mk <- userAdd (userLogin user) (userRememberToken user)
-          case mk of
-            Just k -> do
-              fmap (Right . (^. authUser) . fromJust) $ 
-                userUpdateByKey k $ \u -> (authUser .~ (user {userId = userId $ u ^. authUser})) u
-            Nothing -> return $ Left DuplicateLogin
-{-
-    mk <- userAdd (userLogin user) (userRememberToken user)
-    case mk of
-      Nothing -> case userId user of
-        Just k -> 
-          fmap (maybe (Left DuplicateLogin) (Right . (^. authUser))) $ 
-            userUpdateByKey k $ \u -> (userName .~ (userLogin user)) u
-        Nothing -> return $ Left DuplicateLogin
       Just k -> do
-          fmap (Right . (^. authUser) . fromJust) $ 
-            userUpdateByKey k $ \u -> (authUser .~ (user {userId = userId $ u ^. authUser})) u
--}
+        u <- userUpdateByKey k $ \u -> ((userName .~ (userLogin user)) . (authUser .~ user)) u
+        seq u $ return $ (maybe (Left DuplicateLogin) (Right . (^. authUser))) u
+      Nothing -> do
+        mk <- userAdd (userLogin user) (userRememberToken user)
+        case mk of
+          Just k -> do
+            u <- userUpdateByKey k $ \u -> (authUser .~ (user {userId = userId $ u ^. authUser})) u
+            seq u $ return $ (Right . (^. authUser) . fromJust) u
+          Nothing -> return $ Left DuplicateLogin
 
+------------------------------------------------------------------------------
+-- Acid API for blogs
+
+-- | All blogs
+blogsAcid :: Query AppAcid Blogs
+blogsAcid = asks _blogs
+
+-- | Add a blog for a user
+blogAddForUserAcid :: UserKey -> Blog -> Update AppAcid (Maybe BlogKey)
+blogAddForUserAcid userKey blog = liftST2MS $ do
+    mkey <- zoom blogs $ blogAdd (blog ^. blogTitle)
+    case mkey of
+      Just key -> do
+        zoom blogs $ blogUpdateByKey key $ \b -> (blogId .~ (b ^. blogId)) blog
+        blogAttachToUser key userKey
+        return mkey
+      _ -> return Nothing
+
+------------------------------------------------------------------------------
+-- Acid API for ownership
+
+-- | All ownership
+blogsOfUserAcid :: Query AppAcid [(UserKey, [BlogKey])]
+blogsOfUserAcid = fmap (Map.toList . Map.map Set.toList) $ asks _blogsOfUser
+
+------------------------------------------------------------------------------
+-- Acidification
 makeAcidic ''AppAcid
-  [ 'userAddAcid
+  [ 
+  -- user
+    'usersAcid
+  
+  , 'userAddAcid
   , 'userSetByKeyAcid
   , 'userDeleteAcid
   
@@ -83,5 +114,13 @@ makeAcidic ''AppAcid
   , 'userLookupByRTokenAcid
   
   , 'saveAuthUser
+  
+  -- blog
+  , 'blogsAcid
+  
+  , 'blogAddForUserAcid
+  
+  -- ownership
+  , 'blogsOfUserAcid
   ]
 

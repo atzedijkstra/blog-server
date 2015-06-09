@@ -6,3 +6,8 @@ Concurrency: Idle thread doing checkpoint
 
 Acid run in-memory
 
+Make a blog overview for when not logged in, or vice versa for logged in user only
+
+Add fields, eg for Blog, categories, tags...
+
+Html: table based dump v info
