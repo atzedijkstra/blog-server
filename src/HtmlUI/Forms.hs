@@ -2,37 +2,37 @@
 
 ------------------------------------------------------------------------------
 -- | This module is where the Html (form) interfaces are
-module HtmlUI
+module HtmlUI.Forms
   -- all is exported
   where
 
 ------------------------------------------------------------------------------
 import           Data.Maybe
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+-- import qualified Data.Map as Map
+-- import qualified Data.Set as Set
 import qualified Data.ByteString.Char8 as B
 import           Control.Lens
-import           Data.Monoid
+-- import           Data.Monoid
 import qualified Data.Text as T
 import           Control.Monad
-import           Control.Monad.State
+-- import           Control.Monad.State
 import           Control.Applicative
-import qualified Prelude as P
+-- import qualified Prelude as P
 import           Prelude
 import           Snap.Snaplet.Auth (AuthUser(..), Password(..), encryptPassword)
 import           System.IO.Unsafe (unsafePerformIO)
 ------------------------------------------------------------------------------
-import           Text.Blaze.Html
-import           Text.Blaze.Html5
-import           Text.Blaze.Html5.Attributes
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
-import           Text.Blaze.Renderer.XmlHtml
+-- import           Text.Blaze.Html
+-- import           Text.Blaze.Html5
+-- import           Text.Blaze.Html5.Attributes
+-- import qualified Text.Blaze.Html5 as H
+-- import qualified Text.Blaze.Html5.Attributes as A
+-- import           Text.Blaze.Renderer.XmlHtml
 import           Text.Digestive as D
-import           Text.Digestive.Blaze.Html5
+-- import           Text.Digestive.Blaze.Html5
 -- import           Text.Digestive.Heist
 -- import           Text.Templating.Heist
-import qualified Text.XmlHtml as X
+-- import qualified Text.XmlHtml as X
 ------------------------------------------------------------------------------
 import           Application.User
 import           Application.Blog

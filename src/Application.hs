@@ -11,15 +11,17 @@ module Application
 import           Control.Lens
 import           Control.Monad.State
 import           Data.Typeable
-import qualified Data.Map as Map
-import qualified Data.Set as Set
 import           Snap.Snaplet
 import           Snap.Snaplet.Heist
 import           Snap.Snaplet.Auth
 import           Snap.Snaplet.Session
 import           Snap.Snaplet.AcidState
 import           Data.SafeCopy (base, deriveSafeCopy)
+import qualified UHC.Util.RelMap as Rel
+------------------------------------------------------------------------------
+import           Utils.SafeCopy()
 import           Config.SafeCopy
+import           Application.KeyValueWithId
 import           Application.User
 import           Application.Blog
 ------------------------------------------------------------------------------
@@ -29,12 +31,12 @@ import           Application.Blog
 data AppAcid = AppAcid
     { _users        :: !Users
     , _blogs        :: !Blogs
-    , _blogsOfUser  :: Map.Map UserKey (Set.Set BlogKey)
+    , _user2blog    :: Rel.Rel UserKey BlogKey
     }
     deriving (Typeable)
 
 emptyAppAcid :: AppAcid
-emptyAppAcid = AppAcid emptyUsers emptyBlogs Map.empty
+emptyAppAcid = AppAcid emptyUsers emptyBlogs Rel.empty
 
 makeLenses ''AppAcid
 
@@ -59,9 +61,18 @@ instance HasAcid App AppAcid where
   getAcidStore  = view $ acid . snapletValue
 
 ------------------------------------------------------------------------------
--- Relation between blog and user
+-- Functionality of acid part of app
+
+-- | Associate blog and user
 blogAttachToUser :: (Monad m, MonadState AppAcid m) => BlogKey -> UserKey -> m ()
-blogAttachToUser b u = blogsOfUser %= Map.insertWith Set.union u (Set.singleton b)
+blogAttachToUser b u = user2blog %= Rel.insert u b
+
+-- | Lookup user for blog
+user2blogLookupUserByBlog :: Blog -> AppAcid -> Maybe User
+user2blogLookupUserByBlog blog acid = do
+    uid <- Rel.lookupRng (blog ^. blogId) (acid ^. user2blog)
+    kviLookupById' uid (acid ^. users)
+
 
 ------------------------------------------------------------------------------
 --

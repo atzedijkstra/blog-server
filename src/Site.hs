@@ -10,9 +10,10 @@ module Site
 
 ------------------------------------------------------------------------------
 import           Data.Maybe
+import           Data.String
 import           Control.Lens
 import           Control.Applicative
-import           Data.ByteString.Char8 as B (pack, ByteString)
+import           Data.ByteString.Char8 as B (pack, unpack, ByteString)
 import           Data.Monoid
 import qualified Data.Text as T
 import           Snap.Core
@@ -28,6 +29,7 @@ import qualified Heist.Interpreted as I
 import           UHC.Util.Pretty
 ------------------------------------------------------------------------------
 import qualified Text.Blaze.Html5 as H
+import qualified Text.Blaze.Html5.Attributes as HA
 import           Text.Blaze.Renderer.XmlHtml
 ------------------------------------------------------------------------------
 import qualified Text.Digestive.Snap as DS
@@ -38,9 +40,14 @@ import           Application.User
 import           Application.Blog
 import           Acid.API
 import           Acid.Auth
-import           HtmlUI
+import           HtmlUI.Forms
+import           HtmlUI.Render
+import           Config.Locations
+import           Utils.Monad
+import           Utils.URL
 ------------------------------------------------------------------------------
--- import           Utils.Debug
+import           Utils.Debug
+------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
 -- Utils
@@ -55,7 +62,11 @@ getCurrentUser = do
 
 -- | Default handler for various pieces of code
 defaultHandler :: Handler App v ()
-defaultHandler = redirect "/"
+defaultHandler = redirect "/home"
+
+-- | 
+mkEditBlogHdlrNm :: String -> T.Text -> String
+mkEditBlogHdlrNm hdlrNm blogId = urlSuffixParams [urlMkKeyValParam handlernameBlogId (T.unpack blogId)] hdlrNm
 
 ------------------------------------------------------------------------------
 -- | Render login form
@@ -99,14 +110,22 @@ handleEditUser postAction = do
     mbuser <- getCurrentUser
     case mbuser of
       Just user -> do
+        let uid = userKey user
         (formView, formResult) <- DS.runForm "form" $ editFormUser user
         case formResult of
           Just user2 -> do
-            with acid $ update $ UserSetByKeyAcid (fromJust $ userId $ user ^. authUser) user2
+            with acid $ update $ UserSetByKeyAcid uid user2
             defaultHandler
-          _ -> heistLocal (bindDigestiveSplices formView)
-                 $ renderWithSplices "userEditForm"
-                 $ "postAction" ## (I.textSplice $ T.pack postAction)
+          _ -> do
+            blogAndUsers <- query $ BlogsSelectByMbUserAcid (Just uid)
+            heistLocal (bindDigestiveSplices formView)
+              $ renderWithSplices "userEditForm" $ do
+                  "postAction" ## (I.textSplice $ T.pack postAction)
+                  "blogs" ##
+                    (return $ renderHtmlNodes $ flip hrenderBlogs blogAndUsers $ \blog ->
+                       H.a H.! HA.href (fromString $ handlernameMkTop $ mkEditBlogHdlrNm handlernameEditBlog (blog ^. blogId))
+                         $ "edit"
+                    )
       _ -> defaultHandler
 
 ------------------------------------------------------------------------------
@@ -114,16 +133,25 @@ handleEditUser postAction = do
 handleEditBlog :: String -> Handler App App ()
 handleEditBlog postAction = do
     mbuser <- getCurrentUser
+    mbBlogId@(~(Just blogId')) <- getParam $ B.pack handlernameBlogId
+    let isOnExistingBlog = isJust mbBlogId
+        blogId = T.pack $ trpp "handleEditBlog.blogId" $ B.unpack blogId'
     case mbuser of
       Just user -> do
-        (formView, formResult) <- DS.runForm "form" $ editFormBlog emptyBlog
-        case formResult of
+        blog <- if isOnExistingBlog
+          then fmap fromJust $ query $ BlogLookupByKeyAcid blogId
+          else return emptyBlog
+        (formView, formResult) <- DS.runForm "form" $ editFormBlog blog
+        case (\v -> trpp' "handleEditBlog.blog2" (mbBlogId >#< v) v) $
+             formResult of
           Just blog2 -> do
-            with acid $ update $ BlogAddForUserAcid (fromJust $ userId $ user ^. authUser) blog2
+            with acid $ if (trpp "handleEditBlog.on exists?" isOnExistingBlog)
+              then voidM $ update $ BlogSetByKeyAcid blogId blog2
+              else voidM $ update $ BlogAddForUserAcid (fromJust $ userId $ user ^. authUser) blog2
             defaultHandler
           _ -> heistLocal (bindDigestiveSplices formView)
                  $ renderWithSplices "blogEditForm"
-                 $ "postAction" ## (I.textSplice $ T.pack postAction)
+                 $ "postAction" ## (I.textSplice $ T.pack $ if isOnExistingBlog then mkEditBlogHdlrNm postAction blogId else postAction)
       _ -> defaultHandler
 
 ------------------------------------------------------------------------------
@@ -137,22 +165,35 @@ handleDumpAdm = do
       "users" ## mkdump users
       "blogs" ## mkdump blogs
       "ownership" ## mkdump ownership
-  where mkdump x = return $ renderHtmlNodes $ H.pre $ H.toMarkup $ show (pp x)
+  where
+    mkdump x = return $ renderHtmlNodes $ H.pre $ H.toMarkup $ show (pp x)
+
+------------------------------------------------------------------------------
+-- | Show adm
+handleHome :: Handler App App ()
+handleHome = do
+    blogAndUsers <- query $ BlogsSelectByMbUserAcid Nothing
+    renderWithSplices "mainMenu" $ do
+      "blogs" ## (return $ renderHtmlNodes $ hrenderBlogs (const mempty) blogAndUsers)
 
 ------------------------------------------------------------------------------
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
 routes = [ ("/login"        , with authacid handleLoginSubmit)
          , ("/logout"       , with authacid handleLogout)
-         , ("/home"         , render "mainMenu")
+         , ("/home"         , handleHome)
+         , ("/index"        , handleHome)
          , ("/dump"         , handleDumpAdm)
-         , mkFormRoute "editUserSettings" handleEditUser
-         , mkFormRoute "editBlog" handleEditBlog
+         , ("/checkpoint"   , createCheckpoint >> defaultHandler)
+         , mkFormRoute Nothing "editUserSettings" handleEditUser
+         , mkFormRoute Nothing handlernameEditBlog handleEditBlog
+         , mkFormRoute (Just handlernameBlogId) handlernameEditBlog handleEditBlog
          , ("/newUser"      , with authacid handleNewUser)
+         -- , (""              , handleHome)
          , (""              , serveDirectory "static")
          ]
-  where mkFormRoute :: String -> (String -> Handler App App ()) -> (ByteString, Handler App App ())
-        mkFormRoute formName h = (B.pack postAction, (h postAction))
+  where mkFormRoute :: Maybe String -> String -> (String -> Handler App App ()) -> (ByteString, Handler App App ())
+        mkFormRoute mbParam formName h = (B.pack $ postAction ++ maybe "" ("/:" ++) mbParam, (h postAction))
           where postAction = "/" ++ formName
 
 

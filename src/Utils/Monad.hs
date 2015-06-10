@@ -3,25 +3,13 @@
 ------------------------------------------------------------------------------
 -- | Various utils for Monad
 module Utils.Monad
-  ( -- zoom
-    liftST2MS
-  , liftRT2MR
-  )
+  -- export all
   where
 
 ------------------------------------------------------------------------------
 import           Control.Monad.State as MS
 import           Control.Monad.Reader as MR
--- import qualified Control.Lens as L
--- import qualified Control.Lens.Internal.Zoom as L
-import           Data.Text
-import           UHC.Util.Pretty
 ------------------------------------------------------------------------------
-
-------------------------------------------------------------------------------
--- PP instances
-instance PP Text where
-  pp = pp . show
 
 ------------------------------------------------------------------------------
 -- | Lift from StateT to a MonadState
@@ -39,3 +27,8 @@ liftRT2MR m = do
   ma <- ask
   (res) <- runReaderT m ma
   return res
+
+------------------------------------------------------------------------------
+-- | Get rid of monadic result
+voidM :: Monad m => m x -> m ()
+voidM m = m >> return ()

@@ -17,7 +17,7 @@ import qualified Data.Text as T
 import           UHC.Util.Pretty
 ------------------------------------------------------------------------------
 import           Config.SafeCopy
-import           Utils.Monad()
+import           Utils.Pretty()
 import           Application.KeyValueWithId
 ------------------------------------------------------------------------------
 
@@ -108,3 +108,7 @@ blogLookupByKey = kviLookupById
 -- | Lookup blog by name
 blogLookupByName :: (Functor m, Monad m, MonadReader Blogs m) => BlogName -> m (Maybe Blog)
 blogLookupByName = kviLookupByKey
+
+-- | Blogs as a list, sorted on order of entry
+blogsToList :: Blogs -> [Blog]
+blogsToList = Map.elems . _blogsKey2BlogMp

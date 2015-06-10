@@ -8,8 +8,7 @@ module Acid.API
 
 ------------------------------------------------------------------------------
 import           Data.Maybe
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import qualified UHC.Util.RelMap as Rel
 import           Control.Lens
 import           Control.Monad.Reader
 import           Snap.Snaplet.AcidState
@@ -18,7 +17,7 @@ import           Snap.Snaplet.Auth
 import           Application
 import           Application.User
 import           Application.Blog
-import           Utils.Monad (liftST2MS, liftRT2MR)
+import           Utils.Monad
 ------------------------------------------------------------------------------
 -- import           UHC.Util.Pretty
 -- import           Utils.Debug
@@ -38,9 +37,7 @@ userAddAcid nm mtok = liftST2MS $ zoom users $ userAdd nm mtok
 -- | Set user
 userSetByKeyAcid :: UserKey -> User -> Update AppAcid ()
 userSetByKeyAcid k u = liftST2MS $ zoom users $ do
-    userUpdateByKey k $
-      const u
-    return ()
+    voidM $ userUpdateByKey k $ const u
 
 -- | Delete a user
 userDeleteAcid :: User -> Update AppAcid ()
@@ -80,6 +77,11 @@ saveAuthUser user = liftST2MS $ zoom users $ do
 blogsAcid :: Query AppAcid Blogs
 blogsAcid = asks _blogs
 
+-- | Set blog
+blogSetByKeyAcid :: BlogKey -> Blog -> Update AppAcid ()
+blogSetByKeyAcid k u = liftST2MS $ zoom blogs $ do
+    voidM $ blogUpdateByKey k $ const u
+
 -- | Add a blog for a user
 blogAddForUserAcid :: UserKey -> Blog -> Update AppAcid (Maybe BlogKey)
 blogAddForUserAcid userKey blog = liftST2MS $ do
@@ -91,12 +93,37 @@ blogAddForUserAcid userKey blog = liftST2MS $ do
         return mkey
       _ -> return Nothing
 
+-- | Lookup a blog by key
+blogLookupByKeyAcid :: BlogKey -> Query AppAcid (Maybe Blog)
+blogLookupByKeyAcid nm = liftRT2MR $ magnify blogs $ blogLookupByKey nm
+
 ------------------------------------------------------------------------------
 -- Acid API for ownership
 
 -- | All ownership
 blogsOfUserAcid :: Query AppAcid [(UserKey, [BlogKey])]
-blogsOfUserAcid = fmap (Map.toList . Map.map Set.toList) $ asks _blogsOfUser
+blogsOfUserAcid = fmap Rel.toDomList $ asks _user2blog
+
+------------------------------------------------------------------------------
+-- Acid API select/queries combining various subcomponents
+
+-- | Extract/select blogs and their users
+blogsSelectByMbUserAcid :: Maybe UserKey -> Query AppAcid [(Blog,User)]
+blogsSelectByMbUserAcid mbForUser = do
+    acid <- ask
+    fmap concat $ 
+      forM (blogsToList $ acid ^. blogs) $ \blog -> do
+        let mbuser = user2blogLookupUserByBlog blog acid
+        if (maybe True id $ do {u1 <- mbForUser; u2 <- mbuser; return $ u1 == userKey u2})
+          then return [(blog, fromJust mbuser)]
+          else return []
+
+------------------------------------------------------------------------------
+-- Acid API overall
+
+-- | All
+acidAll :: Query AppAcid AppAcid
+acidAll = ask
 
 ------------------------------------------------------------------------------
 -- Acidification
@@ -119,8 +146,17 @@ makeAcidic ''AppAcid
   , 'blogsAcid
   
   , 'blogAddForUserAcid
+  , 'blogSetByKeyAcid
+  
+  , 'blogLookupByKeyAcid
   
   -- ownership
   , 'blogsOfUserAcid
+  
+  -- combi
+  , 'blogsSelectByMbUserAcid
+  
+  -- all
+  , 'acidAll
   ]
 

@@ -12,8 +12,8 @@ import           Control.Monad.State
 import           Control.Monad.Reader
 import qualified Data.Map as Map
 ------------------------------------------------------------------------------
--- import           UHC.Util.Pretty
--- import           Utils.Debug
+import           UHC.Util.Pretty
+import           Utils.Debug
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
@@ -68,11 +68,12 @@ kviDelete val = do
 -- | Update, return the updated
 kviUpdateById
   :: ( Monad m, MonadState it m, KeyValueWithId it
-     -- , PP (Id it), PP (Val it), PP (Key it)
+     , PP (Id it), PP (Val it), PP (Key it)
      ) => Id it -> (Val it -> Val it) -> m (Maybe (Val it))
 kviUpdateById i upd = do
     m <- use kviId2ValLens
-    case Map.lookup i m of
+    case (\v -> trpp' "kviUpdateById.lkp" (i >#< v) v) $
+         Map.lookup i m of
       Just val -> do
         (mk , i ) <- kviKeyIdOfVal val
         let val' = upd val
@@ -81,40 +82,24 @@ kviUpdateById i upd = do
         kviId2ValLens %= Map.delete i
         kviId2ValLens %= Map.insert i' val'
         case (mk, mk') of
-          (Just k , Just k') | k /= k'   -> kviKey2IdLens %= (Map.insert k' i' . Map.delete k)
-          (Just k , Nothing)             -> kviKey2IdLens %= (                   Map.delete k)
-          (Nothing, Just k')             -> kviKey2IdLens %= (Map.insert k' i'               )
-          _                              -> return ()
+          (Just k , Just k') -> kviKey2IdLens %= (Map.insert k' i' . Map.delete k)
+          (Just k , Nothing) -> kviKey2IdLens %= (                   Map.delete k)
+          (Nothing, Just k') -> kviKey2IdLens %= (Map.insert k' i'               )
+          _                  -> return ()
         kviPostInsertVal i' val'
         return $ Just val'
       Nothing -> return Nothing
 
 -- | Lookup user by id
-kviLookupById
-  :: ( Functor m, Monad m, MonadReader it m, KeyValueWithId it
-     -- , PP (Id it), PP (Val it)
-     ) => Id it -> m (Maybe (Val it))
-kviLookupById i = fmap (Map.lookup i) $ view kviId2ValLens
+kviLookupById' :: (KeyValueWithId it) => Id it -> it -> Maybe (Val it)
+kviLookupById' i it = Map.lookup i (it ^. kviId2ValLens)
+
+-- | Lookup user by id
+kviLookupById :: (Functor m, Monad m, MonadReader it m, KeyValueWithId it) => Id it -> m (Maybe (Val it))
+kviLookupById i = fmap (kviLookupById' i) $ ask
 
 -- | Lookup user by key
 kviLookupByKey :: (Functor m, Monad m, MonadReader it m, KeyValueWithId it) => Key it -> m (Maybe (Val it))
 kviLookupByKey k = do
     mi <- fmap (Map.lookup k) $ view kviKey2IdLens
     maybe (return Nothing) kviLookupById mi
-{-
--- | Lookup user by key
-userLookupByKey :: (Functor m, Monad m, MonadReader Users m) => UserKey -> m (Maybe User)
-userLookupByKey k = fmap (Map.lookup k) $ view usersKey2UserMp
-
--- | Lookup user by name
-userLookupByName :: (Functor m, Monad m, MonadReader Users m) => UserName -> m (Maybe User)
-userLookupByName nm = do
-    mk <- fmap (Map.lookup nm) $ view usersName2KeyMp
-    maybe (return Nothing) userLookupByKey mk
-
--- | Lookup user by rtoken
-userLookupByRToken :: (Functor m, Monad m, MonadReader Users m) => UserRToken -> m (Maybe User)
-userLookupByRToken rt = do
-    mk <- fmap (Map.lookup rt) $ view usersToken2KeyMp
-    maybe (return Nothing) userLookupByKey mk
--}

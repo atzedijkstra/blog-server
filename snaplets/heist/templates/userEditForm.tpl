@@ -1,11 +1,11 @@
 <apply template="baseWithLoginCheck">
-<dfForm action="${postAction}">
-    <h2>User info:</h2>
-    
-        <apply template="_userEditForm" />
-    
-    <br>
+	<h2>Settings:</h2>
+	<dfForm action="${postAction}">	
+		<apply template="_userEditForm" />
+		<br>
+		<dfInputSubmit value="Ok" />
+	</dfForm>
 
-    <dfInputSubmit value="Ok" />
-</dfForm>
+	<h2>Blogs:</h2>
+	<blogs/>
 </apply>

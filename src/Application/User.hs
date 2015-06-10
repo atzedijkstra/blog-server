@@ -16,14 +16,11 @@ import           Snap.Snaplet.Auth
 import           Data.SafeCopy
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import qualified Data.HashMap.Strict as H
-import           Data.Hashable (Hashable)
-import           Data.Aeson (Value)
-import           Data.Scientific(Scientific)
 import           UHC.Util.Pretty
 ------------------------------------------------------------------------------
 import           Config.SafeCopy
-import           Utils.Monad()
+import           Utils.SafeCopy()
+import           Utils.Pretty()
 import           Application.KeyValueWithId
 ------------------------------------------------------------------------------
 -- import           Utils.Debug
@@ -31,24 +28,6 @@ import           Application.KeyValueWithId
 
 ------------------------------------------------------------------------------
 -- AuthUser specific stuff
-
-deriving instance Typeable UserId
-deriving instance Typeable AuthUser
-
-instance (SafeCopy a, SafeCopy b, Eq a, Hashable a) =>
-    SafeCopy (H.HashMap a b) where
-      getCopy = contain $ fmap H.fromList safeGet
-      putCopy = contain . safePut . H.toList
-
-deriveSafeCopy safeCopyVersion 'base ''UserId
-deriveSafeCopy safeCopyVersion 'base ''AuthUser
-deriveSafeCopy safeCopyVersion 'base ''Password
-deriveSafeCopy safeCopyVersion 'base ''Role
-deriveSafeCopy safeCopyVersion 'base ''AuthFailure
-
-deriveSafeCopy safeCopyVersion 'base ''Value
-
-deriveSafeCopy safeCopyVersion 'base ''Scientific
 
 instance PP UserId where
   pp = pp . unUid
@@ -87,6 +66,10 @@ instance Show User where
 
 instance PP User where
   pp (User {_userName=n, _authUser=u}) = n >|< text ":" >#< u
+
+-- | Get user id, assuming there is one
+userKey :: User -> UserKey
+userKey u = fromJust $ userId $ u ^. authUser
 
 ------------------------------------------------------------------------------
 -- Mapping from user to state

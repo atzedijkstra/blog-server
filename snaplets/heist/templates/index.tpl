@@ -1,3 +1,2 @@
-<apply template="baseWithLoginCheck">
-    <apply template="_mainMenu"/>
+<apply template="mainMenu">
 </apply>
