@@ -279,3 +279,5 @@ Maybe.fromJust: Nothing
 [10/Jun/2015:15:22:33 +0200] Server.httpServe: SHUTDOWN
 [10/Jun/2015:15:22:33 +0200] Server.httpServe: BACKEND STOPPED
 [10/Jun/2015:15:22:51 +0200] Server.httpServe: START, binding to [http://0.0.0.0:8000/]
+[10/Jun/2015:15:27:39 +0200] Server.httpServe: SHUTDOWN
+[10/Jun/2015:15:27:39 +0200] Server.httpServe: BACKEND STOPPED
