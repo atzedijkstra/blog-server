@@ -3,9 +3,13 @@ A playfield and demo (blog) for use of the snap web server framework
 
 # Installation & running
 Build using cabal. Location of executable is mentioned by cabal build.
-File stage.tgz can be unpacked into the directory from which the server
-is run to provide a sample initial state, existing users are 'jan' and
-'piet' with the same password as name.
+
+Then either:
+* File stage.tgz (holding state and log) can be unpacked into the
+  directory from which the server is run to provide a sample initial
+  state, existing users are 'jan' and 'piet' with the same password as
+  name. Or,
+* do a 'mkdir log'
 
 # Main used libraries
 * Snap: http://snapframework.com/
