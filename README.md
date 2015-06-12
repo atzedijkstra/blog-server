@@ -11,6 +11,10 @@ Then either:
   name. Or,
 * do a 'mkdir log'
 
+Then run by (e.g.):
+* .cabal-sandbox/bin/blog-server -p 8000
+* open a browser at http://localhost:8000
+
 # Main used libraries
 * Snap: http://snapframework.com/
 * Digestive functors: https://github.com/jaspervdj/digestive-functors/blob/master/examples/tutorial.lhs
