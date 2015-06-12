@@ -12,8 +12,8 @@ import           Control.Monad.State
 import           Control.Monad.Reader
 import qualified Data.Map as Map
 ------------------------------------------------------------------------------
-import           UHC.Util.Pretty
-import           Utils.Debug
+-- import           UHC.Util.Pretty
+-- import           Utils.Debug
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
@@ -68,11 +68,11 @@ kviDelete val = do
 -- | Update, return the updated
 kviUpdateById
   :: ( Monad m, MonadState it m, KeyValueWithId it
-     , PP (Id it), PP (Val it), PP (Key it)
+     -- , PP (Id it), PP (Val it), PP (Key it)
      ) => Id it -> (Val it -> Val it) -> m (Maybe (Val it))
 kviUpdateById i upd = do
     m <- use kviId2ValLens
-    case (\v -> trpp' "kviUpdateById.lkp" (i >#< v) v) $
+    case -- (\v -> trpp' "kviUpdateById.lkp" (i >#< v) v) $
          Map.lookup i m of
       Just val -> do
         (mk , i ) <- kviKeyIdOfVal val

@@ -46,7 +46,7 @@ import           Config.Locations
 import           Utils.Monad
 import           Utils.URL
 ------------------------------------------------------------------------------
-import           Utils.Debug
+-- import           Utils.Debug
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
@@ -135,17 +135,19 @@ handleEditBlog postAction = do
     mbuser <- getCurrentUser
     mbBlogId@(~(Just blogId')) <- getParam $ B.pack handlernameBlogId
     let isOnExistingBlog = isJust mbBlogId
-        blogId = T.pack $ trpp "handleEditBlog.blogId" $ B.unpack blogId'
+        blogId = T.pack $ -- trpp "handleEditBlog.blogId" $
+                          B.unpack blogId'
     case mbuser of
       Just user -> do
         blog <- if isOnExistingBlog
           then fmap fromJust $ query $ BlogLookupByKeyAcid blogId
           else return emptyBlog
         (formView, formResult) <- DS.runForm "form" $ editFormBlog blog
-        case (\v -> trpp' "handleEditBlog.blog2" (mbBlogId >#< v) v) $
+        case -- (\v -> trpp' "handleEditBlog.blog2" (mbBlogId >#< v) v) $
              formResult of
           Just blog2 -> do
-            with acid $ if (trpp "handleEditBlog.on exists?" isOnExistingBlog)
+            with acid $ if -- trpp "handleEditBlog.on exists?"
+                           isOnExistingBlog
               then voidM $ update $ BlogSetByKeyAcid blogId blog2
               else voidM $ update $ BlogAddForUserAcid (fromJust $ userId $ user ^. authUser) blog2
             defaultHandler
