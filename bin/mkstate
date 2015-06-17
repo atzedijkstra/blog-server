@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# make state tar file
+tar cfz state.tgz state log
