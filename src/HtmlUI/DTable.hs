@@ -8,9 +8,9 @@ module HtmlUI.DTable
   where
 
 ------------------------------------------------------------------------------
-import           Control.Monad
-import           Data.Monoid
-import qualified Data.Text as T
+-- import           Control.Monad
+-- import           Data.Monoid
+-- import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------

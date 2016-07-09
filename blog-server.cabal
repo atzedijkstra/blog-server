@@ -1,5 +1,5 @@
 Name:                blog-server
-Version:             0.1
+Version:             0.1.0.1
 Synopsis:            Blog server
 Description:         Demo Snap web (Blog) server
 License:             AllRightsReserved
@@ -52,7 +52,7 @@ Executable blog-server
     digestive-functors-heist  >= 0.8.6.2,
     digestive-functors-snap   >= 0.6.1.3,
     text                      >= 0.11    && < 1.3,
-    time                      >= 1.1     && < 1.6,
+    time                      >= 1.1     && < 1.7,
     xmlhtml                   >= 0.1     && < 0.3
 
   if flag(old-base)
@@ -62,7 +62,7 @@ Executable blog-server
   else
     build-depends:
       base                      >= 4.4      && < 5,
-      lens                      >= 3.7.6    && < 4.12
+      lens                      >= 3.8      && < 4.14
 
   if flag(development)
     build-depends:

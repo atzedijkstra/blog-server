@@ -3,6 +3,8 @@ A playfield and demo (blog) for use of the snap web server framework
 
 # Installation & running
 Build using cabal. Location of executable is mentioned by cabal build.
+The following app is build:
+* blog-server
 
 Then either:
 * File stage.tgz (holding state and log) can be unpacked into the

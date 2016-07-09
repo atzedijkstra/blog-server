@@ -14,7 +14,7 @@ import           Data.String
 import           Control.Lens
 import           Control.Applicative
 import           Data.ByteString.Char8 as B (pack, unpack, ByteString)
-import           Data.Monoid
+-- import           Data.Monoid
 import qualified Data.Text as T
 import           Snap.Core
 import           Snap.Snaplet
